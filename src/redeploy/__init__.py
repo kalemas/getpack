@@ -25,10 +25,9 @@ class Resource:
 
     def get_path(self, *args):
         path = self.local_base
-        if self.local_prefix:
-            path /= self.local_prefix
-        for a in args:
-            path /= a
+        for a in (self.local_prefix,) + args:
+            if a:
+                path /= a
         return path
 
     def ensure_avaialble(self):
@@ -52,6 +51,7 @@ class WebResource(Resource):
 
     def make_available(self):
         request = urllib.request.urlopen(self.archive_url)
+        # TODO extract to temporary folder then rename
         with zipfile.ZipFile(BytesIO(request.read())) as archive:
             for entity in archive.filelist:
                 destpath = ''
