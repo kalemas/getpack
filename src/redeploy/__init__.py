@@ -9,6 +9,7 @@ import zipfile
 class Resource:
     name = None
     local_base = Path(os.getenv('APPDATA')) / 'redeploy'
+    local_prefix = None
     initialized = False
     activated = False
 
@@ -17,10 +18,18 @@ class Resource:
             setattr(self, k, v)
 
     def get_available_versions(self):
-        path = self.local_base / self.name
+        path = self.get_path(self.name)
         if path.is_dir():
             return os.listdir(path)
         return []
+
+    def get_path(self, *args):
+        path = self.local_base
+        if self.local_prefix:
+            path /= self.local_prefix
+        for a in args:
+            path /= a
+        return path
 
     def ensure_avaialble(self):
         if self.initialized:
@@ -52,8 +61,8 @@ class WebResource(Resource):
                         break
                 else:
                     continue
-                destpath = (self.local_base / self.name / self.version /
-                            destpath / entity.filename)
+                destpath = self.get_path(self.name, self.version, destpath,
+                                         entity.filename)
                 if not destpath.parent.is_dir():
                     destpath.parent.mkdir(parents=True)
                 if destpath.is_file():
@@ -62,14 +71,14 @@ class WebResource(Resource):
 
 
 class WebPackage(WebResource):
-    local_base = WebResource.local_base / 'python'
+    local_prefix = 'python'
 
     def activate(self):
         if self.activated:
             return
         self.ensure_avaialble()
         self.activated = True
-        sys.path.insert(0, str(self.local_base / self.name / self.version))
+        sys.path.insert(0, str(self.get_path(self.name, self.version)))
         __import__(self.name)
 
     def __getattr__(self, key):
@@ -86,4 +95,4 @@ if __name__ == '__main__':
             'cefpython3-66.1-py2.py3-none-win_amd64.whl'),
         version='66.1',
         )
-    print(cefpython3.__version__)
+    print(cefpython3.__version__, cefpython3.__path__)
