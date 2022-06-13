@@ -32,10 +32,10 @@ class Resource:
         self.make_available()
 
     def make_available(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def activate(self):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class WebResource(Resource):
@@ -46,7 +46,7 @@ class WebResource(Resource):
         with zipfile.ZipFile(BytesIO(request.read())) as archive:
             for entity in archive.filelist:
                 destpath = ''
-                for k ,v in self.archive_extraction.items():
+                for k, v in self.archive_extraction.items():
                     if entity.filename.startswith(k):
                         destpath = v['path']
                         break

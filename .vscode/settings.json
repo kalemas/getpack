@@ -4,9 +4,12 @@
             "column": 80,
         }
     ],
+    "explorer.excludeGitIgnore": true,
     "python.testing.pytestArgs": [
         "."
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
 }
