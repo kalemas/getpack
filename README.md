@@ -1,4 +1,4 @@
-### Setup external resources that already available.
+### Setup external resources any deploy them on the fly.
 
 This package provide classes that allow to setup external resources (utilities,
 python packages etc.) that will be deployed whenever they are used. Most of

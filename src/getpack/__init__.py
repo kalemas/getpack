@@ -1,5 +1,8 @@
 """
-Setup external resources that already available.
+Setup external resources any deploy them on the fly.
+
+This file is suitable to bundle with projects so they would bootstrap *getpack*
+and install it from pypi, then use full set of functions.
 
 
 Copyright (c) 2022 Konstantin Maslyuk. All rights reserved.
@@ -12,20 +15,27 @@ from io import BytesIO
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
+import tempfile
+import typing
 import urllib.request
 import zipfile
 
 
+__version__ = '0.0.1'
+
+
 class Resource:
     """Base resource."""
-    name = None
+    name = ''
     activated = False
     initialized = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
+            # TODO prevent usage of undefined properties
             setattr(self, k, v)
 
     def make_available(self):
@@ -63,9 +73,10 @@ class LocalResource(Resource):
                 path /= a
         return path
 
-    def ensure_available(self):
+    def _ensure_available(self):
         if self.initialized:
             return
+        assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
         if self.version in self.get_available_versions():
             return
@@ -78,49 +89,128 @@ class LocalResource(Resource):
             shutil.rmtree(path)
 
 
-class WebResource(LocalResource):
-    """Resource acquired from the web."""
+class ArchiveExtractor:
+    def __init__(self, stream):
+        self.stream = stream
+
+    def __enter__(self):
+        raise NotImplementedError
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        raise NotImplementedError
+
+
+class ZipExtractor(ArchiveExtractor):
+
+    def __enter__(self):
+        # TODO here we process archive in memory, not the best approach
+        # especially for large archives, consider local caching, retransferring
+        # broken parts
+        self.zipfile = zipfile.ZipFile(BytesIO(self.stream.read()))
+        self.context = self.zipfile.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.zipfile.__exit__(exc_type, exc_value, exc_traceback)
+
+    def get_file_list(self):
+        return [f.filename for f in self.zipfile.filelist]
+
+    def get_stream(self, filename):
+        return self.zipfile.read(filename)
+
+
+class ArchivedResource(LocalResource):
     archive_extraction = {'': {'path': ''}}
+    extractor_plugins = {
+        r'.+\.(whl|zip)$': ZipExtractor,
+    }
+
+    def get_extractor(self, filename, stream):
+        for k, v in self.extractor_plugins.items():
+            if re.match(k, filename):
+                return v(stream)
+
+
+class WebResource(ArchivedResource):
+    """Resource from the web."""
 
     def make_available(self):
         self.cleanup()
 
         request = urllib.request.urlopen(self.archive_url)
-        # TODO raise for status
-        # TODO extract to temporary folder then rename
-        with zipfile.ZipFile(BytesIO(request.read())) as archive:
-            for entity in archive.filelist:
+        assert request.status in {200}, 'Unexpected status {} for {}'.format(
+            request.status, self.archive_url)
+
+        # extract to temporary folder then rename
+        temp_path = Path(tempfile.mkdtemp())
+
+        with self.get_extractor(self.archive_url, request) as extractor:
+            for filename in extractor.get_file_list():
                 dest_path = ''
                 for k, v in self.archive_extraction.items():
-                    if entity.filename.startswith(k):
+                    if filename.startswith(k):
                         dest_path = v['path']
                         break
                 else:
                     continue
-                dest_path = self.get_path(self.name, self.version, dest_path,
-                                          entity.filename)
+                dest_path = temp_path / dest_path / filename
                 if not dest_path.parent.is_dir():
                     dest_path.parent.mkdir(parents=True)
-                if dest_path.is_file():
-                    dest_path.unlink()
-                dest_path.write_bytes(archive.read(entity.filename))
+                dest_path.write_bytes(extractor.get_stream(filename))
+
+        temp_path.rename(self.get_path(self.name, self.version))
 
 
 class PythonPackage(LocalResource):
     """Python package."""
     local_prefix = 'python'
+    requirements = []  # type: typing.Iterable[Resource]
+
+    def __init__(self, name=None, version=None, **kwargs):
+        if name:
+            kwargs['name'] = name
+        if version:
+            kwargs['version'] = version
+        super(PythonPackage, self).__init__(**kwargs)
 
     def __call__(self, *_, **__):
         if self.activated:
             return
-        self.ensure_available()
+
+        # activate requirements
+        [r() for r in self.requirements]
+
+        self._ensure_available()
         self.activated = True
         sys.path.insert(0, str(self.get_path(self.name, self.version)))
         __import__(self.name)
+        # TODO validate imported package by path
 
     def __getattr__(self, key):
+        """
+        The biggest problem in such approach is that static analysis does not
+        work. I think it is still necessary to use something like:
+        ```python
+        try:
+            import PySide2
+        except ImportError:
+            PySide2 = getpack.PyPiPackage('PySide2', '5.15.2')
+        ```
+        or
+        ```python
+        getpack.PyPiPackage('PySide2', '5.15.2')()
+        import PySide2
+        ```
+        """
         self()
         return getattr(sys.modules[self.name], key)
+
+    def cleanup(self):
+        # TODO consider recursive cleanup, it cause dll locking in PySide test
+        # for resource in self.requirements:
+        #     resource.cleanup()
+        return super(PythonPackage, self).cleanup()
 
 
 class WebPackage(PythonPackage, WebResource):
@@ -137,13 +227,17 @@ class PyPiPackage(WebPackage):
                 'https://pypi.org/pypi/{}/json'.format(self.name))
             data = json.loads(request.read())
             releases = data['releases'][self.version]
-            for release in releases[:]:
-                # TODO improve release selection
-                if 'py3' not in release['python_version']:
-                    releases.remove(release)
-                elif 'win_amd64' not in release['filename']:
-                    releases.remove(release)
-                assert len(releases) == 1, 'Failed to choose release'
+            platform = 'win_amd64'
+            releases = [
+                r for r in releases
+                if platform in r['filename']
+            ]
+            # TODO improve release selection
+            assert len(
+                releases) >= 1, 'No unique release available from {}'.format(
+                    ', '.join(r['filename'] +
+                              (' (selected)' if r in releases else '')
+                              for r in data['releases'][self.version]))
             # TODO save and check digest
             self._archive_url = releases[0]['url']
         return self._archive_url
