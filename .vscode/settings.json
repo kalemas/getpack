@@ -5,6 +5,7 @@
         }
     ],
     "explorer.excludeGitIgnore": true,
+    "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
     "python.testing.pytestArgs": [
         "."
@@ -14,4 +15,5 @@
     "python.linting.enabled": true,
     "python.linting.flake8Enabled": true,
     "python.formatting.provider": "yapf",
+    "python.linting.mypyEnabled": true,
 }
