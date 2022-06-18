@@ -24,7 +24,7 @@ import urllib.request
 import zipfile
 
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 
 
 def _logging(*args):
@@ -84,15 +84,16 @@ class LocalResource(Resource):
         """Obtain resrouce and store in `path`"""
         raise NotImplementedError
 
-    def _ensure_available(self):
+    def __call__(self, *_, **__):
         if self.initialized:
-            return
+            return self
         assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
         if self.path.is_dir():
             return
         self.initialized = True
         self.deploy()
+        return self
 
     def deploy(self):
         self.cleanup()
@@ -201,14 +202,15 @@ class PythonPackage(LocalResource):
             kwargs['version'] = version
         super(PythonPackage, self).__init__(**kwargs)
 
-    def __call__(self, *_, **__):
+    def __call__(self, *args, **kwargs):
         if self.activated:
             return
 
         # activate requirements
         [r() for r in self.requirements]
 
-        self._ensure_available()
+        super(PythonPackage, self).__call__(*args, **kwargs)
+
         sys.path.insert(0, str(self.path))
         try:
             __import__(self.name)
