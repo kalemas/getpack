@@ -1,5 +1,5 @@
 """
-Setup external resources any deploy them on the fly.
+Declarative external resources any with implicit deployment.
 
 This file is suitable to bundle with projects so they would bootstrap *getpack*
 and install it from pypi, then use full set of functions.
@@ -24,7 +24,19 @@ import urllib.request
 import zipfile
 
 
-__version__ = '0.0.1'
+__version__ = '0.0.5'
+
+
+def _logging(*args):
+    return print(args[0] % args[1:])
+
+
+def _logging_off(*args):
+    pass
+
+
+info = _logging_off
+debug = info
 
 
 class Resource:
@@ -38,7 +50,7 @@ class Resource:
             # TODO prevent usage of undefined properties
             setattr(self, k, v)
 
-    def make_available(self):
+    def deploy(self):
         """
         This will produce all the hard work to make resource available, but
         not necessary to make an effect from resource in current environment.
@@ -59,34 +71,42 @@ class LocalResource(Resource):
     """Locally cached resource."""
     local_base = Path(os.getenv('APPDATA')) / 'getpack'
     local_prefix = ''
+    _path = None
 
-    def get_available_versions(self):
-        path = self.get_path(self.name)
-        if path.is_dir():
-            return os.listdir(path)
-        return []
+    @property
+    def path(self):
+        if self._path is None:
+            self._path = (
+                self.local_base / self.local_prefix / self.name / self.version)
+        return self._path
 
-    def get_path(self, *args):
-        path = self.local_base
-        for a in (self.local_prefix,) + args:
-            if a:
-                path /= a
-        return path
+    def _deploy_to(self, path):
+        """Obtain resrouce and store in `path`"""
+        raise NotImplementedError
 
     def _ensure_available(self):
         if self.initialized:
             return
         assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
-        if self.version in self.get_available_versions():
+        if self.path.is_dir():
             return
         self.initialized = True
-        self.make_available()
+        self.deploy()
+
+    def deploy(self):
+        self.cleanup()
+        # extract to temporary folder then rename
+        temp_path = Path(tempfile.mkdtemp())
+        self._deploy_to(temp_path)
+        if not self.path.parent.is_dir():
+            self.path.parent.mkdir(parents=True)
+        temp_path.rename(self.path)
 
     def cleanup(self):
-        path = self.get_path(self.name, self.version)
-        if path.is_dir():
-            shutil.rmtree(path)
+        if self.path.is_dir():
+            info('Cleanup %s', self.path)
+            shutil.rmtree(self.path)
 
 
 class ArchiveExtractor:
@@ -121,31 +141,25 @@ class ZipExtractor(ArchiveExtractor):
 
 
 class ArchivedResource(LocalResource):
+    archive_name = ''
     archive_extraction = {'': {'path': ''}}
     extractor_plugins = {
         r'.+\.(whl|zip)$': ZipExtractor,
     }
 
-    def get_extractor(self, filename, stream):
-        for k, v in self.extractor_plugins.items():
-            if re.match(k, filename):
-                return v(stream)
+    def get_archive_stream(self):
+        raise NotImplementedError
 
+    def _deploy_to(self, path):
+        assert self.archive_name, (
+            'Property *archive_name* should be defined for {}'.format(self))
+        for k, extractor_cls in self.extractor_plugins.items():
+            if re.match(k, self.archive_name):
+                break
+        else:
+            raise Exception('No extractor for {}'.format(self.archive_name))
 
-class WebResource(ArchivedResource):
-    """Resource from the web."""
-
-    def make_available(self):
-        self.cleanup()
-
-        request = urllib.request.urlopen(self.archive_url)
-        assert request.status in {200}, 'Unexpected status {} for {}'.format(
-            request.status, self.archive_url)
-
-        # extract to temporary folder then rename
-        temp_path = Path(tempfile.mkdtemp())
-
-        with self.get_extractor(self.archive_url, request) as extractor:
+        with extractor_cls(self.get_archive_stream()) as extractor:
             for filename in extractor.get_file_list():
                 dest_path = ''
                 for k, v in self.archive_extraction.items():
@@ -154,12 +168,25 @@ class WebResource(ArchivedResource):
                         break
                 else:
                     continue
-                dest_path = temp_path / dest_path / filename
+                dest_path = path / dest_path / filename
                 if not dest_path.parent.is_dir():
                     dest_path.parent.mkdir(parents=True)
                 dest_path.write_bytes(extractor.get_stream(filename))
 
-        temp_path.rename(self.get_path(self.name, self.version))
+
+class WebResource(ArchivedResource):
+    """Resource from the web."""
+
+    def get_archive_stream(self):
+        info('Downloading %s', self.archive_url)
+        request = urllib.request.urlopen(self.archive_url)
+        assert request.status in {200}, 'Unexpected status {} for {}'.format(
+            request.status, self.archive_url)
+        return request
+
+    @property
+    def archive_name(self):
+        return self.archive_url.rsplit('/', 1)[1]
 
 
 class PythonPackage(LocalResource):
@@ -182,9 +209,13 @@ class PythonPackage(LocalResource):
         [r() for r in self.requirements]
 
         self._ensure_available()
+        sys.path.insert(0, str(self.path))
+        try:
+            __import__(self.name)
+        except Exception:
+            sys.path.remove(str(self.path))
+            raise
         self.activated = True
-        sys.path.insert(0, str(self.get_path(self.name, self.version)))
-        __import__(self.name)
         # TODO validate imported package by path
 
     def __getattr__(self, key):
@@ -206,12 +237,6 @@ class PythonPackage(LocalResource):
         self()
         return getattr(sys.modules[self.name], key)
 
-    def cleanup(self):
-        # TODO consider recursive cleanup, it cause dll locking in PySide test
-        # for resource in self.requirements:
-        #     resource.cleanup()
-        return super(PythonPackage, self).cleanup()
-
 
 class WebPackage(PythonPackage, WebResource):
     """Python package from the web."""
@@ -227,6 +252,8 @@ class PyPiPackage(WebPackage):
                 'https://pypi.org/pypi/{}/json'.format(self.name))
             data = json.loads(request.read())
             releases = data['releases'][self.version]
+            debug('Available releases:\n\t%s', '\n\t'.join(
+                r['filename'] for r in data['releases'][self.version]))
             platform = 'win_amd64'
             releases = [
                 r for r in releases

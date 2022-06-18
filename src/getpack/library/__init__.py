@@ -1,5 +1,5 @@
 """
-This module will demonstrate *getpack*
+This module contain the library of available *getpack* resources.
 """
 from .. import PyPiPackage
 
@@ -27,10 +27,10 @@ class PySide2(PyPiPackage):
     name = 'PySide2'
     version = '5.15.2'
 
-    def __init__(self, **kwargs):
-        super(PySide2, self).__init__(**kwargs)
-        if not self.requirements:
-            self.requirements = [PyPiPackage('shiboken2', self.version)]
+    def _deploy_to(self, path):
+        # this should be installed into the same dir as PySide itself
+        PyPiPackage('shiboken2', self.version)._deploy_to(path)
+        return super()._deploy_to(path)
 
 
 class ffmpeg:
@@ -38,4 +38,8 @@ class ffmpeg:
 
 
 class blender:
+    pass
+
+
+class rclone:
     pass
