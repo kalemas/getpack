@@ -24,7 +24,7 @@ import urllib.request
 import zipfile
 
 
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 
 
 def _logging(*args):
@@ -135,7 +135,12 @@ class ZipExtractor(ArchiveExtractor):
         self.zipfile.__exit__(exc_type, exc_value, exc_traceback)
 
     def get_file_list(self):
-        return [f.filename for f in self.zipfile.filelist]
+        return [
+            f.filename
+            for f in self.zipfile.filelist
+            # skip folders
+            if f.filename[-1] != '/'
+        ]
 
     def get_stream(self, filename):
         return self.zipfile.read(filename)
@@ -164,12 +169,14 @@ class ArchivedResource(LocalResource):
             for filename in extractor.get_file_list():
                 dest_path = ''
                 for k, v in self.archive_extraction.items():
+                    # TODO add regex
                     if filename.startswith(k):
-                        dest_path = v['path']
+                        dest_path = v['path'] + filename[len(k):]
                         break
                 else:
                     continue
-                dest_path = path / dest_path / filename
+                assert dest_path and dest_path[0] != '/'
+                dest_path = path / dest_path
                 if not dest_path.parent.is_dir():
                     dest_path.parent.mkdir(parents=True)
                 dest_path.write_bytes(extractor.get_stream(filename))
