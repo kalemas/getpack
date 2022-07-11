@@ -20,15 +20,18 @@ import shutil
 import sys
 import tempfile
 import typing
-import urllib.request
+try:
+    from six.moves import urllib
+except ImportError:
+    import urllib.request
 import zipfile
 
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 
 def _logging(*args):
-    return print(args[0] % args[1:])
+    print(args[0] % args[1:])
 
 
 def _logging_off(*args):
@@ -39,7 +42,7 @@ info = _logging_off
 debug = info
 
 
-class Resource:
+class Resource(object):
     """Base resource."""
     name = ''
     activated = False
