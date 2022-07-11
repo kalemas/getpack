@@ -267,6 +267,7 @@ class PyPiPackage(WebPackage):
             releases = [
                 r for r in releases
                 if platform in r['filename']
+                or re.search(r'\Wany\W', r['filename'])
             ]
             # TODO improve release selection
             assert len(
