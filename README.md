@@ -30,3 +30,8 @@ version:
 ```bash
 python -c "import getpack.library;getpack.library.PySide2(version='5.14.1')(); import PySide2.QtWidgets; app=PySide2.QtWidgets.QApplication(); w=PySide2.QtWidgets.QPushButton(PySide2.__version__); w.clicked.connect(w.close); w.show(); app.exec_()"
 ```
+
+### TODO
+
+- Utilize `requirements.txt` to reproduce both development and production
+  environments.
