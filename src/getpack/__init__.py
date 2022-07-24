@@ -20,14 +20,11 @@ import shutil
 import sys
 import tempfile
 import typing
-try:
-    from six.moves import urllib
-except ImportError:
-    import urllib.request
+from six.moves import urllib
 import zipfile
 
 
-__version__ = '0.0.8'
+__version__ = '0.0.9'
 
 
 def _logging(*args):
