@@ -24,7 +24,7 @@ from six.moves import urllib
 import zipfile
 
 
-__version__ = '0.0.9'
+__version__ = '0.0.10'
 
 
 def _logging(*args):
@@ -179,7 +179,10 @@ class ArchivedResource(LocalResource):
                 dest_path = path / dest_path
                 if not dest_path.parent.is_dir():
                     dest_path.parent.mkdir(parents=True)
-                dest_path.write_bytes(extractor.get_stream(filename))
+
+                # py2 pathlib.Path does not have write_bytes()
+                with open(str(dest_path), 'wb') as f:
+                    f.write(extractor.get_stream(filename))
 
 
 class WebResource(ArchivedResource):
@@ -188,8 +191,9 @@ class WebResource(ArchivedResource):
     def get_archive_stream(self):
         info('Downloading %s', self.archive_url)
         request = urllib.request.urlopen(self.archive_url)
-        assert request.status in {200}, 'Unexpected status {} for {}'.format(
-            request.status, self.archive_url)
+        assert request.getcode() in {200}, (
+            'Unexpected status {} for {}'.format(
+                request.getcode(), self.archive_url))
         return request
 
     @property
