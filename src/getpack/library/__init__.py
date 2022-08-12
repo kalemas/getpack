@@ -1,12 +1,21 @@
 """
 This module contain the library of available *getpack* resources.
 """
+import sys
+
 from .. import PyPiPackage
 
 
 class cefpython3(PyPiPackage):
     name = 'cefpython3'
     version = '66.1'
+
+    if sys.version_info.major == 3 and sys.version_info.minor == 10:
+        version = '88.0'
+        archive_url = (
+            'https://github.com/HonorarPlus/cefpython/releases/'
+            'download/v88.2_py310/cefpython3-88.0-cp310-none-win_amd64'
+            '.whl')
 
 
 class PySide2(PyPiPackage):
