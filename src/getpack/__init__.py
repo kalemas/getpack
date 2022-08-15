@@ -90,7 +90,7 @@ class LocalResource(Resource):
         assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
         if self.path.is_dir():
-            return
+            return self
         self.initialized = True
         self.deploy()
         return self
