@@ -24,7 +24,7 @@ from six.moves import urllib
 import zipfile
 
 
-__version__ = '0.0.10'
+__version__ = '0.0.11'
 
 
 def _logging(*args):
@@ -169,6 +169,7 @@ class ArchivedResource(LocalResource):
             for filename in extractor.get_file_list():
                 dest_path = ''
                 for k, v in self.archive_extraction.items():
+                    k = k.format(self=self)
                     # TODO add regex
                     if filename.startswith(k):
                         dest_path = v['path'] + filename[len(k):]
@@ -189,11 +190,12 @@ class WebResource(ArchivedResource):
     """Resource from the web."""
 
     def get_archive_stream(self):
-        info('Downloading %s', self.archive_url)
-        request = urllib.request.urlopen(self.archive_url)
+        archive_url = self.archive_url.format(self=self)
+        info('Downloading %s', archive_url)
+        request = urllib.request.urlopen(archive_url)
         assert request.getcode() in {200}, (
             'Unexpected status {} for {}'.format(
-                request.getcode(), self.archive_url))
+                request.getcode(), archive_url))
         return request
 
     @property

@@ -2,8 +2,9 @@
 This module contain the library of available *getpack* resources.
 """
 import sys
+import platform
 
-from .. import PyPiPackage
+from .. import PyPiPackage, WebResource
 
 
 class cefpython3(PyPiPackage):
@@ -46,8 +47,35 @@ class ffmpeg:
     pass
 
 
-class blender:
-    pass
+class Blender(WebResource):
+    name = 'blender'
+    architecture = 'x64'
+    version = '3.3.1'
+    archive_url = ('https://download.blender.org/release/'
+                   'Blender{self.version_minor}/'
+                   'blender-{self.version}-{self.platform}-'
+                   '{self.architecture}.zip')
+    archive_extraction = {
+        'blender-{self.version}-{self.platform}-{self.architecture}/': {
+            'path': ''
+        },
+    }
+
+    @property
+    def version_minor(self):
+        return '.'.join(self.version.split('.')[:2])
+
+    @property
+    def platform(self):
+        if platform.system() == 'Darwin':
+            return 'macos'
+        return platform.system().lower()
+
+    @property
+    def bin_ext(self):
+        if platform.system() == 'Windows':
+            return '.exe'
+        return ''
 
 
 class rclone:
