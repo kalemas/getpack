@@ -47,8 +47,8 @@ class Resource(object):
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
-            # TODO prevent usage of undefined properties
-            setattr(self, k, v)
+            if v is not None:
+                setattr(self, k, v)
 
     def deploy(self):
         """
