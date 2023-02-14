@@ -40,11 +40,7 @@ class PySide2(PyPiPackage):
     def _deploy_to(self, path):
         # this should be installed into the same dir as PySide itself
         PyPiPackage('shiboken2', self.version)._deploy_to(path)
-        return super()._deploy_to(path)
-
-
-class ffmpeg:
-    pass
+        return super(PySide2, self)._deploy_to(path)
 
 
 class Blender(WebResource):

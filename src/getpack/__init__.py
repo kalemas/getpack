@@ -1,5 +1,5 @@
 """
-Declarative external resources any with implicit deployment.
+Declarative external resources with implicit deployment.
 
 This file is suitable to bundle with projects so they would bootstrap *getpack*
 and install it from pypi, then use full set of functions.
@@ -24,7 +24,7 @@ from six.moves import urllib
 import zipfile
 
 
-__version__ = '0.0.11'
+__version__ = '0.0.12'
 
 
 def _logging(*args):
@@ -44,6 +44,7 @@ class Resource(object):
     name = ''
     activated = False
     initialized = False
+    path = None  # type: Path
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -74,7 +75,7 @@ class LocalResource(Resource):
     _path = None
 
     @property
-    def path(self):
+    def path(self):  # type: () -> Path
         if self._path is None:
             self._path = (
                 self.local_base / self.local_prefix / self.name / self.version)
