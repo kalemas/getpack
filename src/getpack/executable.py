@@ -10,12 +10,17 @@ class Executable(Resource):
         executable_ext = '.exe'
 
     def get_popen_params(self, args, kwargs):
-        args = (str(self.path /
-                    (self.executable + self.executable_ext)), ) + args
+        args = (self.path / (self.executable + self.executable_ext), ) + args
+        args = tuple(str(i) for i in args)  # conform to string (pathlib.Path)
         if kwargs.get('input') is None:
             kwargs['stdin'] = subprocess.PIPE
         kwargs.setdefault('stdout', subprocess.PIPE)
         kwargs.setdefault('stderr', subprocess.PIPE)
+        if sys.platform == 'win32':
+            # hide console window
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            kwargs['startupinfo'] = startupinfo
         return args, kwargs
 
     def __call__(self, *args, **kwargs):
