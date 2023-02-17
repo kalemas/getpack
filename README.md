@@ -9,8 +9,8 @@ There are several examples in `test/` folder and `getpack.library` module
 already defined and useable. But main intention is to provide framework for
 declarative setup of any resource and work with it without care of deployment.
 ```python
-import getpack
-class Example(getpack.WebResource):
+from getpack.resource import WebResource
+class Example(WebResource):
     version = '0.1'
     archive_url = 'https://example.com/example-0.1.zip'
 ```

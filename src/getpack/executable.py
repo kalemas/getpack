@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from . import Resource
+from .resource import Resource
 
 
 class Executable(Resource):

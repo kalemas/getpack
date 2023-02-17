@@ -1,5 +1,5 @@
-from .. import WebResource
 from ..executable import Executable
+from ..resource import WebResource
 
 
 class ffmpeg(Executable, WebResource):

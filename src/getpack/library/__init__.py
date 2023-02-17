@@ -4,7 +4,7 @@ This module contain the library of available *getpack* resources.
 import sys
 import platform
 
-from .. import PyPiPackage, WebResource
+from ..resource import PyPiPackage, WebResource
 
 
 class cefpython3(PyPiPackage):
