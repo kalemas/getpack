@@ -21,7 +21,6 @@ import sys
 import random
 import typing
 from six.moves import urllib
-import zipfile
 
 
 def _logging(*args):
@@ -150,6 +149,7 @@ class ArchiveExtractor:
 class ZipExtractor(ArchiveExtractor):
 
     def __enter__(self):
+        import zipfile
         # TODO here we process archive in memory, not the best approach
         # especially for large archives, consider local caching, retransferring
         # broken parts
@@ -168,8 +168,32 @@ class ZipExtractor(ArchiveExtractor):
             if f.filename[-1] != '/'
         ]
 
-    def get_stream(self, filename):
+    def get_bytes(self, filename):
         return self.zipfile.read(filename)
+
+
+class TarExtractor(ArchiveExtractor):
+    def __enter__(self):
+        import tarfile
+        self.obj = tarfile.open(fileobj=BytesIO(self.stream.read()))
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.obj.close()
+
+    def get_file_list(self):
+        files = [f.name for f in self.obj.getmembers()]
+        for i in reversed(range(len(files))):
+            for ii in files[i:]:
+                if ii.startswith(files[i] + '/'):
+                    break
+            else:
+                continue
+            del files[i]
+        return files
+
+    def get_bytes(self, filename):
+        return self.obj.extractfile(filename).read()
 
 
 class ArchivedResource(LocalResource):
@@ -177,6 +201,7 @@ class ArchivedResource(LocalResource):
     archive_extraction = {'': {'path': ''}}
     extractor_plugins = {
         r'.+\.(whl|zip)$': ZipExtractor,
+        r'.+\.tar(.gz|.xz|.bz)?$': TarExtractor,
     }
 
     def get_archive_stream(self):
@@ -209,7 +234,7 @@ class ArchivedResource(LocalResource):
 
                 # py2 pathlib.Path does not have write_bytes()
                 with open(str(dest_path), 'wb') as f:
-                    f.write(extractor.get_stream(filename))
+                    f.write(extractor.get_bytes(filename))
 
 
 class WebResource(ArchivedResource):
@@ -273,10 +298,11 @@ class WebPackage(PythonPackage, WebResource):
 
 class PyPiPackage(WebPackage):
     _archive_url = ''
+    _release_info = None
 
     @property
-    def archive_url(self):
-        if not self._archive_url:
+    def release_info(self):
+        if self._release_info is None:
             request = urllib.request.urlopen(
                 'https://pypi.org/pypi/{}/json'.format(self.name))
             data = json.loads(request.read())
@@ -284,17 +310,27 @@ class PyPiPackage(WebPackage):
             debug('Available releases:\n\t%s', '\n\t'.join(
                 r['filename'] for r in data['releases'][self.version]))
             platform = 'win_amd64'
-            releases = [
-                r for r in releases
-                if platform in r['filename']
-                or re.search(r'\Wany\W', r['filename'])
-            ]
+            if (len(releases) == 1
+                    and releases[0]['python_version'] == 'source'):
+                pass
+            else:
+                releases = [
+                    r for r in releases
+                    if platform in r['filename']
+                    or re.search(r'\Wany\W', r['filename'])
+                ]
             # TODO improve release selection
             assert len(
                 releases) >= 1, 'No unique release available from {}'.format(
                     ', '.join(r['filename'] +
                               (' (selected)' if r in releases else '')
                               for r in data['releases'][self.version]))
+            self._release_info = releases[0]
+        return self._release_info
+
+    @property
+    def archive_url(self):
+        if not self._archive_url:
             # TODO save and check digest
-            self._archive_url = releases[0]['url']
+            self._archive_url = self.release_info['url']
         return self._archive_url
