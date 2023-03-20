@@ -76,6 +76,10 @@ class Resource(object):
         self.deploy()
         self._available = True
 
+    def __call__(self):
+        self.provide()
+        return self
+
     def cleanup(self):
         raise NotImplementedError
 
