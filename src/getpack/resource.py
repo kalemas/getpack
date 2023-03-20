@@ -18,7 +18,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
-import tempfile
+import random
 import typing
 from six.moves import urllib
 import zipfile
@@ -38,15 +38,23 @@ debug = info
 
 class Resource(object):
     """Base resource."""
+    _available = False
     name = ''
-    activated = False
-    initialized = False
     path = None  # type: Path
+    version = None  # type: str
 
     def __init__(self, **kwargs):
+        """
+        Initialization is not heavy operation, feel free to construct a
+        Resource and query available versions.
+        """
         for k, v in kwargs.items():
             if v is not None:
                 setattr(self, k, v)
+
+    def get_available_versions(self):  # type: () -> typing.List[str]
+        """Get list of available versions."""
+        raise NotImplementedError()
 
     def deploy(self):
         """
@@ -57,9 +65,17 @@ class Resource(object):
         """
         raise NotImplementedError
 
-    def __call__(self, *_, **__):
-        """Actually produce an effect from the resource."""
-        raise NotImplementedError
+    def provide(self):
+        """Make resource available so it would be immediately used."""
+        if self._available:
+            return
+        assert self.name, 'Resource should be named'
+        assert self.version, 'Resource should be versioned'
+        if self.version in self.get_available_versions():
+            self._available = True
+            return
+        self.deploy()
+        self._available = True
 
     def cleanup(self):
         raise NotImplementedError
@@ -78,34 +94,46 @@ class LocalResource(Resource):
                 self.local_base / self.local_prefix / self.name / self.version)
         return self._path
 
+    def get_available_versions(self):
+        if not self.path.parent.is_dir():
+            return []
+        return [
+            i.name for i in self.path.parent.iterdir()
+            if not i.name.endswith('.temp')
+        ]
+
     def _deploy_to(self, path):
         """Obtain resrouce and store in `path`"""
         raise NotImplementedError
 
-    def __call__(self, *_, **__):
-        if self.initialized:
-            return self
-        assert self.name, 'Resource should be named'
-        assert self.version, 'Resource should be versioned'
-        if self.path.is_dir():
-            return self
-        self.initialized = True
-        self.deploy()
-        return self
-
     def deploy(self):
         self.cleanup()
         # extract to temporary folder then rename
-        temp_path = Path(tempfile.mkdtemp())
-        self._deploy_to(temp_path)
-        if not self.path.parent.is_dir():
-            self.path.parent.mkdir(parents=True)
-        temp_path.rename(self.path)
+        temp_path = None
+        try:
+            for _ in range(100):
+                temp_path = self.path.parent / '{:020x}.temp'.format(
+                    random.randrange(16**20))
+                if not temp_path.is_dir():
+                    temp_path.mkdir(parents=True)
+                    break
+            else:
+                raise Exception(
+                    'Failed to find empty temp dir (last: {})'.format(
+                        temp_path))
+            self._deploy_to(temp_path)
+            if not self.path.parent.is_dir():
+                self.path.parent.mkdir(parents=True)
+            temp_path.rename(self.path)
+        except Exception:
+            if temp_path and temp_path.is_dir():
+                shutil.rmtree(str(temp_path))
+            raise
 
     def cleanup(self):
         if self.path.is_dir():
             info('Cleanup %s', self.path)
-            shutil.rmtree(self.path)
+            shutil.rmtree(str(self.path))
 
 
 class ArchiveExtractor:
@@ -204,6 +232,7 @@ class WebResource(ArchivedResource):
 class PythonPackage(LocalResource):
     """Python package."""
     local_prefix = 'python'
+    _activated = False
     requirements = []  # type: typing.Iterable[Resource]
 
     def __init__(self, name=None, version=None, **kwargs):
@@ -213,42 +242,29 @@ class PythonPackage(LocalResource):
             kwargs['version'] = version
         super(PythonPackage, self).__init__(**kwargs)
 
-    def __call__(self, *args, **kwargs):
-        if self.activated:
+    def provide(self):
+        for r in self.requirements:
+            r.provide()
+        super(PythonPackage, self).provide()
+        if str(self.path) not in sys.path:
+            sys.path.insert(0, str(self.path))
+
+    def activate(self):
+        if self._activated:
             return
+        self.provide()
+        [r.activate() for r in self.requirements]
+        __import__(self.name)
+        self._activated = True
 
-        # activate requirements
-        [r() for r in self.requirements]
+    def get(self, name=None):
+        name = name or self.name
+        self.activate()
+        __import__(name)
+        return sys.modules[name]
 
-        super(PythonPackage, self).__call__(*args, **kwargs)
-
-        sys.path.insert(0, str(self.path))
-        try:
-            __import__(self.name)
-        except Exception:
-            sys.path.remove(str(self.path))
-            raise
-        self.activated = True
-        # TODO validate imported package by path
-
-    def __getattr__(self, key):
-        """
-        The biggest problem in such approach is that static analysis does not
-        work. I think it is still necessary to use something like:
-        ```python
-        try:
-            import PySide2
-        except ImportError:
-            PySide2 = getpack.PyPiPackage('PySide2', '5.15.2')
-        ```
-        or
-        ```python
-        getpack.PyPiPackage('PySide2', '5.15.2')()
-        import PySide2
-        ```
-        """
-        self()
-        return getattr(sys.modules[self.name], key)
+    def __call__(self, name=None):
+        return self.get(name=name)
 
 
 class WebPackage(PythonPackage, WebResource):

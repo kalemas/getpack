@@ -5,6 +5,7 @@ import sys
 import platform
 
 from ..resource import PyPiPackage, WebResource
+from ..executable import Executable
 
 
 class cefpython3(PyPiPackage):
@@ -43,7 +44,7 @@ class PySide2(PyPiPackage):
         return super(PySide2, self)._deploy_to(path)
 
 
-class Blender(WebResource):
+class Blender(Executable, WebResource):
     name = 'blender'
     architecture = 'x64'
     version = '3.3.1'
@@ -68,10 +69,8 @@ class Blender(WebResource):
         return platform.system().lower()
 
     @property
-    def bin_ext(self):
-        if platform.system() == 'Windows':
-            return '.exe'
-        return ''
+    def executable(self):
+        return self.path / ('blender' + self.executable_ext)
 
 
 class rclone:
