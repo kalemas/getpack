@@ -251,7 +251,7 @@ class WebResource(ArchivedResource):
 
     @property
     def archive_name(self):
-        return self.archive_url.rsplit('/', 1)[1]
+        return urllib.parse.urlparse(self.archive_url).path.rsplit('/', 1)[1]
 
 
 class PythonPackage(LocalResource):
