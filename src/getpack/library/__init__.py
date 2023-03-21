@@ -43,6 +43,15 @@ class PySide2(PyPiPackage):
         PyPiPackage('shiboken2', self.version)._deploy_to(path)
         return super(PySide2, self)._deploy_to(path)
 
+    def get_available_versions(self):
+        # fix installations with regular PyPiPackage('PySide2')
+        versions = []
+        for i in super(PySide2, self).get_available_versions():
+            if ((self.path.with_name(i) / 'PySide2').is_dir()
+                    and (self.path.with_name(i) / 'shiboken2').is_dir()):
+                versions.append(i)
+        return versions
+
 
 class Blender(Executable, WebResource):
     name = 'blender'
