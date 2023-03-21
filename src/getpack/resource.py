@@ -15,11 +15,14 @@ from io import BytesIO
 import json
 import os
 from pathlib import Path
+import random
 import re
 import shutil
 import sys
-import random
+import tarfile
 import typing
+import zipfile
+
 from six.moves import urllib
 
 
@@ -153,7 +156,6 @@ class ArchiveExtractor:
 class ZipExtractor(ArchiveExtractor):
 
     def __enter__(self):
-        import zipfile
         # TODO here we process archive in memory, not the best approach
         # especially for large archives, consider local caching, retransferring
         # broken parts
@@ -178,7 +180,6 @@ class ZipExtractor(ArchiveExtractor):
 
 class TarExtractor(ArchiveExtractor):
     def __enter__(self):
-        import tarfile
         self.obj = tarfile.open(fileobj=BytesIO(self.stream.read()))
         return self
 
