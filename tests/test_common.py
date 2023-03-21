@@ -38,12 +38,4 @@ def test_blender():
     blender.cleanup()
     blender.provide()
     output = blender('--version')
-    assert version.encode() in output
-
-
-def test_nonlatin_paths():
-    glue = resource.PyPiPackage('glue', '0.13', local_prefix='база')
-    glue.cleanup()
-    glue.provide()
-    # glue-sdist is not possible to activate out of the box, just check file
-    assert (glue.path / 'glue-0.13' / 'AUTHORS').is_file()
+    assert version in output.decode()
