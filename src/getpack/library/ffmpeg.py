@@ -13,4 +13,3 @@ class ffmpeg(Executable, WebResource):
             'path': '',
         },
     }
-    executable = 'ffmpeg'

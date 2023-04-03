@@ -77,10 +77,6 @@ class Blender(Executable, WebResource):
             return 'macos'
         return platform.system().lower()
 
-    @property
-    def executable(self):
-        return self.path / ('blender' + self.executable_ext)
-
 
 class rclone:
     pass
