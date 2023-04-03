@@ -80,3 +80,11 @@ class Blender(Executable, WebResource):
 
 class rclone:
     pass
+
+
+class Python(Executable, WebResource):
+    name = 'python'
+    version = '3.7.9'
+    archive_url = (
+        'https://www.python.org/ftp/python/{self.version}/'
+        'python-{self.version}-embed-amd64.zip')
