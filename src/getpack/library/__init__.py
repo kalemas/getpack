@@ -56,7 +56,7 @@ class PySide2(PyPiPackage):
 class Blender(Executable, WebResource):
     name = 'blender'
     architecture = 'x64'
-    version = '3.3.1'
+    version = '3.4.1'
     archive_url = ('https://download.blender.org/release/'
                    'Blender{self.version_minor}/'
                    'blender-{self.version}-{self.platform}-'
