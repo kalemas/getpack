@@ -11,6 +11,7 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
+            "purpose": ["debug-test"],
         }
     ]
 }
