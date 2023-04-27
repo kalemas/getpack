@@ -20,10 +20,45 @@ import re
 import shutil
 import sys
 import tarfile
+import threading
 import typing
 import zipfile
 
+import portalocker
 from six.moves import urllib
+
+
+__FILE_LOCK_TIMEOUT__ = 15 * 60
+
+
+class HybridLock:
+    def __init__(self, key):
+        self.key = key.as_posix() + '.portalock'
+        self.file_lock = portalocker.RLock(
+                self.key,
+                timeout=__FILE_LOCK_TIMEOUT__,
+                mode='w',
+            )
+        self.lock = threading.RLock()
+
+    def __enter__(self):
+        self.lock.acquire()
+        self.file_lock.acquire()
+
+    def __exit__(self, *_):
+        self.file_lock.release()
+        self.lock.release()
+        try:
+            os.unlink(self.key)
+        except Exception:
+            pass
+
+
+def lock(key, _locks={None: threading.Lock()}):
+    with _locks[None]:
+        if key not in _locks:
+            _locks[key] = HybridLock(key)
+    return _locks[key]
 
 
 def _logging(*args):
@@ -73,11 +108,12 @@ class Resource(object):
             return
         assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
-        if self.version in self.get_available_versions():
+        with lock(self.path):
+            if self.version in self.get_available_versions():
+                self._available = True
+                return
+            self.deploy()
             self._available = True
-            return
-        self.deploy()
-        self._available = True
 
     def __call__(self):
         self.provide()
@@ -137,9 +173,11 @@ class LocalResource(Resource):
             raise
 
     def cleanup(self):
-        if self.path.is_dir():
-            info('Cleanup %s', self.path)
-            shutil.rmtree(str(self.path))
+        with lock(self.path):
+            if self.path.is_dir():
+                info('Cleanup %s', self.path)
+                shutil.rmtree(str(self.path))
+            self._available = False
 
 
 class ArchiveExtractor:
