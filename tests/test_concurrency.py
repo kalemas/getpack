@@ -1,35 +1,36 @@
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from getpack.library.ffmpeg import ffmpeg
+from getpack.library import Python
 
 
-def test_threads_ffmpeg_deployment():
+def test_threads(temp_folder):
     pool = ThreadPoolExecutor(6)
     resources = [
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
-        ffmpeg(version='5.1.1'),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
+        Python(local_base=temp_folder),
     ]
     list(pool.map(lambda r: r.cleanup(), resources))
     list(pool.map(lambda r: r.provide(), resources))
 
 
-def _cleanup_stub(id):
-    resoruce = ffmpeg(version='5.1.1')
+def _cleanup_stub(id, folder):
+    resoruce = Python(local_base=folder)
     resoruce.cleanup()
 
 
-def _provide_stub(id):
-    resoruce = ffmpeg(version='5.1.1')
+def _provide_stub(id, folder):
+    resoruce = Python(local_base=folder)
     resoruce.provide()
 
 
-def test_processes_ffmpeg_deployment():
-    pool = ProcessPoolExecutor(5)
-    list(pool.map(_cleanup_stub, range(5)))
-    list(pool.map(_provide_stub, range(5)))
+def test_processes(temp_folder):
+    num = 30
+    pool = ProcessPoolExecutor(num)
+    list(pool.map(_cleanup_stub, range(num), [temp_folder] * num))
+    list(pool.map(_provide_stub, range(num), [temp_folder] * num))

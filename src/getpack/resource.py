@@ -34,6 +34,7 @@ __FILE_LOCK_TIMEOUT__ = 15 * 60
 class HybridLock:
     def __init__(self, key):
         self.key = key.as_posix() + '.portalock'
+        self.folder = os.path.dirname(self.key)
         self.file_lock = portalocker.RLock(
                 self.key,
                 timeout=__FILE_LOCK_TIMEOUT__,
@@ -43,7 +44,17 @@ class HybridLock:
 
     def __enter__(self):
         self.lock.acquire()
-        self.file_lock.acquire()
+        if not os.path.isdir(self.folder):
+            try:
+                os.makedirs(self.folder)
+            except FileExistsError:
+                pass  # may fail because of race
+        try:
+            self.file_lock.acquire()
+        except Exception:
+            # attempt to fix rare PermissionError in multiprocess races, maybe
+            # timeout? Have no info on effectiveness of following code
+            self.file_lock.acquire()
 
     def __exit__(self, *_):
         self.file_lock.release()
@@ -89,6 +100,10 @@ class Resource(object):
             if v is not None:
                 setattr(self, k, v)
 
+    @property
+    def lock(self):
+        return lock(self.path)
+
     def get_available_versions(self):  # type: () -> typing.List[str]
         """Get list of available versions."""
         raise NotImplementedError()
@@ -108,7 +123,7 @@ class Resource(object):
             return
         assert self.name, 'Resource should be named'
         assert self.version, 'Resource should be versioned'
-        with lock(self.path):
+        with self.lock:
             if self.version in self.get_available_versions():
                 self._available = True
                 return
@@ -173,7 +188,7 @@ class LocalResource(Resource):
             raise
 
     def cleanup(self):
-        with lock(self.path):
+        with self.lock:
             if self.path.is_dir():
                 info('Cleanup %s', self.path)
                 shutil.rmtree(str(self.path))
