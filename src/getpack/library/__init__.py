@@ -8,7 +8,7 @@ from ..resource import PyPiPackage, WebResource
 from ..executable import Executable
 
 
-class cefpython3(PyPiPackage):
+class CefPython3(PyPiPackage):
     name = 'cefpython3'
     version = '66.1'
 
@@ -78,8 +78,12 @@ class Blender(Executable, WebResource):
         return platform.system().lower()
 
 
-class rclone:
-    pass
+class Rclone:
+    version = '1.62.2'
+    platform = 'windows-amd64'
+    archive_url = (
+        'https://downloads.rclone.org/v{self.version}/'
+        'rclone-v{self.version}-{self.platform}.zip')
 
 
 class Python(Executable, WebResource):
@@ -88,3 +92,16 @@ class Python(Executable, WebResource):
     archive_url = (
         'https://www.python.org/ftp/python/{self.version}/'
         'python-{self.version}-embed-amd64.zip')
+
+
+class Ffmpeg(Executable, WebResource):
+    name = 'ffmpeg'
+    version = '5.1.2'
+    archive_url = (
+        'https://github.com/GyanD/codexffmpeg/releases/download/'
+        '{self.version}/ffmpeg-{self.version}-essentials_build.zip')
+    archive_extraction = {
+        'ffmpeg-{self.version}-essentials_build/bin/': {
+            'path': '',
+        },
+    }
