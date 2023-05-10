@@ -20,13 +20,13 @@ def test_threads(temp_folder):
 
 
 def _cleanup_stub(id, folder):
-    resoruce = Python(local_base=folder)
-    resoruce.cleanup()
+    resource = Python(local_base=folder)
+    resource.cleanup()
 
 
 def _provide_stub(id, folder):
-    resoruce = Python(local_base=folder)
-    resoruce.provide()
+    resource = Python(local_base=folder)
+    resource.provide()
 
 
 def test_processes(temp_folder):
