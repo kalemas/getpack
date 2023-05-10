@@ -24,7 +24,7 @@ import threading
 import typing
 import zipfile
 
-import portalocker
+import fasteners
 from six.moves import urllib
 
 
@@ -33,36 +33,40 @@ __FILE_LOCK_TIMEOUT__ = 15 * 60
 
 class HybridLock:
     def __init__(self, key):
-        self.key = key.as_posix() + '.portalock'
+        self.key = key.as_posix() + '.lock'
         self.folder = os.path.dirname(self.key)
-        self.file_lock = portalocker.RLock(
-                self.key,
-                timeout=__FILE_LOCK_TIMEOUT__,
-                mode='w',
-            )
+        self.file_lock = fasteners.InterProcessLock(self.key)
         self.lock = threading.RLock()
+        self.counter = 0
 
     def __enter__(self):
         self.lock.acquire()
-        if not os.path.isdir(self.folder):
+
+        # no more single thread now can access here
+        self.counter += 1
+        if self.counter == 1:
+            if not os.path.isdir(self.folder):
+                try:
+                    os.makedirs(self.folder)
+                except OSError:
+                    pass  # may fail because of race
             try:
-                os.makedirs(self.folder)
-            except FileExistsError:
-                pass  # may fail because of race
-        try:
-            self.file_lock.acquire()
-        except Exception:
-            # attempt to fix rare PermissionError in multiprocess races, maybe
-            # timeout? Have no info on effectiveness of following code
-            self.file_lock.acquire()
+                self.file_lock.acquire()
+            except Exception:
+                # attempt to fix rare PermissionError in multi process races,
+                # maybe timeout? Have no info on effectiveness of following
+                # code
+                self.file_lock.acquire()
 
     def __exit__(self, *_):
-        self.file_lock.release()
+        self.counter -= 1
+        if not self.counter:
+            self.file_lock.release()
+            try:
+                os.unlink(self.key)
+            except Exception:
+                pass
         self.lock.release()
-        try:
-            os.unlink(self.key)
-        except Exception:
-            pass
 
 
 def lock(key, _locks={None: threading.Lock()}):

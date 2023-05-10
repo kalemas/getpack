@@ -11,4 +11,4 @@ This work is licensed under the terms of the MIT license.
 For a copy, see <https://opensource.org/licenses/MIT>.
 """
 
-__version__ = '0.2.5'
+__version__ = '0.2.6'
