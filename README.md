@@ -35,3 +35,6 @@ python -c "import getpack.library;getpack.library.PySide2(version='5.14.1')(); i
 
 - Utilize `requirements.txt` to reproduce both development and production
   environments.
+
+### Testings
+For linux testing with Docker, run: `docker build -t test . && docker run -it --rm test pytest .`

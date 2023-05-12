@@ -28,9 +28,6 @@ import fasteners
 from six.moves import urllib
 
 
-__FILE_LOCK_TIMEOUT__ = 15 * 60
-
-
 class HybridLock:
     def __init__(self, key):
         self.key = key.as_posix() + '.lock'
@@ -144,7 +141,10 @@ class Resource(object):
 
 class LocalResource(Resource):
     """Locally cached resource."""
-    local_base = Path(os.getenv('APPDATA')) / 'getpack'
+    if sys.platform == 'win32':
+        local_base = Path(os.getenv('APPDATA')) / 'getpack'
+    elif sys.platform == 'linux':
+        local_base = Path(os.environ['HOME']) / '.config' / 'getpack'
     local_prefix = ''
     _path = None
 
