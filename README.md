@@ -1,9 +1,9 @@
-### Declarative external resources any with implicit deployment
+### Declarative resources with implicit deployment
 
-This package provide classes that allow to setup external resources (utilities,
-python packages etc.) that will be deployed as they are used. In most
-cases data should be on the web and it will be deployed and cached locally on
-only first usage.
+This package provide classes that allow to setup external resources
+(utilities, python packages, executables etc.) that will be deployed as
+they are used. In most cases data should be on the web and it will be
+deployed and cached locally on only first usage.
 
 There are several examples in `test/` folder and `getpack.library` module
 already defined and useable. But main intention is to provide framework for

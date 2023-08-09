@@ -1,6 +1,6 @@
 import sys
 
-from getpack import  library, resource
+from getpack import library, resource
 import pytest
 
 
