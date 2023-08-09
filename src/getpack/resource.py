@@ -27,6 +27,12 @@ from six.moves import urllib
 from .extraction import TarExtractor, ZipExtractor
 
 
+if sys.version_info.major >= 3:
+    __py_implementation__ = sys.implementation.name
+else:
+    __py_implementation__ = 'cpython'
+
+
 class HybridLock:
     def __init__(self, key):
         self.key = key.as_posix() + '.lock'
@@ -261,6 +267,13 @@ class PythonPackage(LocalResource):
     local_prefix = 'python'
     _activated = False
     requirements = []  # type: typing.Iterable[Resource]
+    python_tag = '{}{}{}'.format(
+        {
+            'cpython': 'cp',
+        }.get(__py_implementation__, __py_implementation__),
+        sys.version_info.major,
+        sys.version_info.minor,
+    )
 
     def __init__(self, name=None, version=None, **kwargs):
         if name:
@@ -268,6 +281,8 @@ class PythonPackage(LocalResource):
         if version:
             kwargs['version'] = version
         super(PythonPackage, self).__init__(**kwargs)
+        if self.python_tag:
+            self.local_prefix += '/' + self.python_tag
 
     def provide(self):
         for r in self.requirements:
