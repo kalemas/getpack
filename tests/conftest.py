@@ -9,4 +9,7 @@ import pytest
 def temp_folder():
     folder = Path(tempfile.mkdtemp())
     yield folder
-    shutil.rmtree(folder.as_posix())
+    try:
+        shutil.rmtree(folder.as_posix())
+    except Exception:
+        print('Failed to cleanup {}'.format(folder))
