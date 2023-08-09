@@ -339,6 +339,17 @@ class PyPiPackage(WebPythonPackage):
                     if platform in r['filename']
                     or re.search(r'\Wany\W', r['filename'])
                 ]
+            if self.python_tag:
+                # python_version looks as `cp39.cp310.cp311` or `py2.py3`
+                supported_versions = {self.python_tag, 'source'}
+                if self.python_tag.startswith('cp3'):
+                    supported_versions.add('py3')
+                if self.python_tag.startswith('cp2'):
+                    supported_versions.add('py2')
+                releases = [
+                    r for r in releases if 'python_version' not in r
+                    or supported_versions & set(r['python_version'].split('.'))
+                ]
             # TODO improve release selection
             assert len(
                 releases) >= 1, 'No unique release available from {}'.format(
