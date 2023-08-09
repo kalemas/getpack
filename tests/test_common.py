@@ -1,4 +1,7 @@
+import sys
+
 from getpack import  library, resource
+import pytest
 
 
 def test_cefpython3(temp_folder):
@@ -15,6 +18,8 @@ def test_cefpython3(temp_folder):
     assert '66.1' in cefpython3.get_available_versions()
 
 
+@pytest.mark.skipif(
+        sys.version_info < (3,), reason='PySide2 available for Py3 only')
 def test_pyside2():
     PySide2 = library.PySide2()
     PySide2.cleanup()
@@ -45,3 +50,10 @@ def test_blender():
 def test_parent_folders_exists(temp_folder):
     python = library.Python(local_base=temp_folder)
     assert python.version.encode() in python('--version')
+
+
+def test_numpy():
+    package = resource.PyPiPackage(
+        'numpy', '1.11.2' if sys.version_info < (3, ) else '1.23.1')
+    package.cleanup()
+    package()
