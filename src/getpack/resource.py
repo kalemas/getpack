@@ -354,11 +354,14 @@ class PythonPackage(LocalResource):
         return self.get(name=name)
 
 
-class WebPackage(PythonPackage, WebResource):
+class WebPythonPackage(PythonPackage, WebResource):
     """Python package from the web."""
 
 
-class PyPiPackage(WebPackage):
+WebPackage = WebPythonPackage  # TODO deprecated
+
+
+class PyPiPackage(WebPythonPackage):
     _archive_url = ''
     _release_info = None
 
