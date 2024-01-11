@@ -11,6 +11,7 @@ This work is licensed under the terms of the MIT license.
 For a copy, see <https://opensource.org/licenses/MIT>.
 """
 
+import certifi
 import json
 import os
 from pathlib import Path
@@ -251,11 +252,21 @@ class WebResource(ArchivedResource):
     def get_archive_stream(self):
         archive_url = self.archive_url.format(self=self)
         info('Downloading %s', archive_url)
-        request = urllib.request.urlopen(archive_url)
-        assert request.getcode() in {200}, (
+        request = urllib.request.Request(
+            archive_url,
+            data=None,
+            headers={
+                # Blender web resource seems to disallow python user agent
+                'User-Agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X '
+                               '10_9_3) AppleWebKit/537.36 (KHTML, like '
+                               'Gecko) Chrome/35.0.1916.47 Safari/537.36'),
+            },
+        )
+        response = urllib.request.urlopen(request, cafile=certifi.where())
+        assert response.getcode() in {200}, (
             'Unexpected status {} for {}'.format(
-                request.getcode(), archive_url))
-        return request
+                response.getcode(), archive_url))
+        return response
 
     @property
     def archive_name(self):
