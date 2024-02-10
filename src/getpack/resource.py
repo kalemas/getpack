@@ -91,12 +91,7 @@ info = _logging_off
 debug = info
 
 
-class Resource(object):
-    """Base resource."""
-    _available = False
-    name = ''
-    path = None  # type: Path
-    version = None  # type: str
+class Base(object):
 
     def __init__(self, **kwargs):
         """
@@ -106,6 +101,14 @@ class Resource(object):
         for k, v in kwargs.items():
             if v is not None:
                 setattr(self, k, v)
+
+
+class Resource(Base):
+    """Base resource."""
+    _available = False
+    name = ''
+    path = None  # type: Path
+    version = None  # type: str
 
     @property
     def lock(self):

@@ -1,32 +1,26 @@
 import subprocess
 import sys
 
-from .resource import Resource
+from .resource import Base, Resource
 
 
-class Executable(Resource):
-    executable_ext = ''
-    if sys.platform == 'win32':
-        executable_ext = '.exe'
+class LocalExecutable(Base):
+    """
+    Wrapper for locally available executable.
+
+    So it is easier to add convenience methods and accomplish nitty-gritty
+    tasks.
+    """
+    executable = None
     popen_class = subprocess.Popen
 
-    @property
-    def executable_name(self):
-        try:
-            return self._executable_name
-        except AttributeError:
-            pass
-        return self.name
-
-    @executable_name.setter
-    def executable_name(self, value):
-        self._executable_name = value
-
-    @property
-    def executable(self):
-        return self.path / (self.executable_name + self.executable_ext)
+    def __init__(self, executable=None, *args, **kwargs):
+        if executable:
+            self.executable = executable
+        super(LocalExecutable, self).__init__(*args, **kwargs)
 
     def get_popen_params(self, args, kwargs):
+        assert self.executable, 'Property `executable` should be provided'
         args = (self.executable, ) + args
         args = tuple(str(i) for i in args)  # conform to string (pathlib.Path)
         kwargs = dict((k, v) for k, v in kwargs.items() if k not in {
@@ -56,9 +50,11 @@ class Executable(Resource):
         check - `bool`, whether exception should be raised if process returned
                 non zero exit code. Default is `True`.
         """
-        self.provide()
         input = kwargs.pop('input', None)
+        detach = kwargs.pop('detach', False)
         proc = self.make_popen(*args, **kwargs)
+        if detach:
+            return
         out, err = proc.communicate(input=input)
         if kwargs.get('check', True) and proc.returncode:
             raise Exception(
@@ -70,3 +66,31 @@ class Executable(Resource):
     def make_popen(self, *args, **kwargs):
         resolved_kwargs = self.get_popen_params(args, kwargs)
         return self.popen_class(**resolved_kwargs)
+
+
+class Executable(LocalExecutable, Resource):
+    """Intended for executables provided by WebResource."""
+
+    executable_ext = ''
+    if sys.platform == 'win32':
+        executable_ext = '.exe'
+
+    @property
+    def executable(self):
+        return self.path / (self.executable_name + self.executable_ext)
+
+    @property
+    def executable_name(self):
+        try:
+            return self._executable_name
+        except AttributeError:
+            pass
+        return self.name
+
+    @executable_name.setter
+    def executable_name(self, value):
+        self._executable_name = value
+
+    def __call__(self, *args, **kwargs):
+        self.provide()
+        return super(Executable, self).__call__(*args, **kwargs)
