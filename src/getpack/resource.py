@@ -11,22 +11,22 @@ This work is licensed under the terms of the MIT license.
 For a copy, see <https://opensource.org/licenses/MIT>.
 """
 
-import certifi
 import json
 import os
-from pathlib import Path
 import random
 import re
 import shutil
 import sys
 import threading
+import time
 import typing  # noqa: F401
+from pathlib import Path
 
+import certifi
 import fasteners
 from six.moves import urllib
 
 from .extraction import TarExtractor, ZipExtractor
-
 
 if sys.version_info.major >= 3:
     __py_implementation__ = sys.implementation.name
@@ -89,6 +89,30 @@ def _logging_off(*args):
 
 info = _logging_off
 debug = info
+
+
+def retry(func, retries=None, backoff=None, exceptions=(Exception, )):
+    if retries is None:
+        if 'GETPACK_RETRIES' in os.environ:
+            retries = int(os.getenv('GETPACK_RETRIES'))
+        else:
+            retries = 50
+    if backoff is None:
+        if 'GETPACK_BACKOFF' in os.environ:
+            backoff = float(os.getenv('GETPACK_BACKOFF'))
+        else:
+            backoff = 0.1
+
+    def wrapped(*args, **kwargs):
+        for i in reversed(range(retries)):
+            try:
+                return func(*args, **kwargs)
+            except exceptions:
+                if not i:
+                    raise
+                time.sleep(backoff)
+
+    return wrapped
 
 
 class Base(object):
@@ -160,9 +184,13 @@ class LocalResource(Resource):
     @property
     def path(self):  # type: () -> Path
         if self._path is None:
-            self._path = (
-                self.local_base / self.local_prefix / self.name / self.version)
+            self._path = (self.local_base / self.local_prefix / self.name /
+                          self.version)
         return self._path
+
+    @path.setter
+    def path(self, value):
+        self._path = value
 
     def get_available_versions(self):
         if not self.path.parent.is_dir():
@@ -194,17 +222,19 @@ class LocalResource(Resource):
             self._deploy_to(temp_path)
             if not self.path.parent.is_dir():
                 self.path.parent.mkdir(parents=True)
-            temp_path.rename(self.path)
+            retry(temp_path.rename, exceptions=(PermissionError, ))(self.path)
         except Exception:
             if temp_path and temp_path.is_dir():
-                shutil.rmtree(str(temp_path))
+                retry(shutil.rmtree,
+                      exceptions=(PermissionError, ))(str(temp_path))
             raise
 
     def cleanup(self):
         with self.lock:
             if self.path.is_dir():
                 info('Cleanup %s', self.path)
-                shutil.rmtree(str(self.path))
+                retry(shutil.rmtree,
+                      exceptions=(PermissionError, ))(str(self.path))
             self._available = False
 
 

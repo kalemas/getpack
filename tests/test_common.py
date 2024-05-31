@@ -4,7 +4,7 @@ from getpack import library, resource
 import pytest
 
 
-def test_cefpython3(temp_folder):
+def test_cefpython3(temp_folder, background_scanner):
     cefpython3 = resource.WebPackage(
         name='cefpython3',
         archive_url=(
@@ -26,7 +26,7 @@ def test_pyside2():
     assert PySide2().__version__ == PySide2.version
 
 
-def test_cefpython3_pypi(temp_folder):
+def test_cefpython3_pypi(temp_folder, background_scanner):
     cefpython3 = library.CefPython3(local_base=temp_folder)
     assert not cefpython3._activated
     cefpython3.cleanup()
@@ -47,7 +47,7 @@ def test_blender():
     assert version in output.decode()
 
 
-def test_parent_folders_exists(temp_folder):
+def test_parent_folders_exists(temp_folder, background_scanner):
     python = library.Python(local_base=temp_folder)
     assert python.version.encode() in python('--version')
 

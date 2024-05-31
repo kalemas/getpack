@@ -38,3 +38,8 @@ python -c "import getpack.library;getpack.library.PySide2(version='5.14.1')(); i
 
 ### Testings
 For linux testing with Docker, run: `docker build -t test . && docker run -it --rm test pytest .`
+
+### Environs
+* `GETPACK_RETRIES` - int, number of general retries, used for renaming and
+    removing temporary folders
+* `GETPACK_BACKOFF` - float, delay between retires
