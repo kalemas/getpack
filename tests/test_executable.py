@@ -11,3 +11,6 @@ def test_executable_override():
     assert b'python.exe' in python('-c', 'import sys; print(sys.executable)')
     python = getpack.library.Python(executable_name='pythonw')
     assert b'pythonw.exe' in python('-c', 'import sys; print(sys.executable)')
+    python = getpack.library.Python(
+        executable=python.executable.replace('python.exe', 'pythonw.exe'))
+    assert b'pythonw.exe' in python('-c', 'import sys; print(sys.executable)')
