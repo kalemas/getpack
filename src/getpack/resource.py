@@ -174,10 +174,14 @@ class Resource(Base):
 
 class LocalResource(Resource):
     """Locally cached resource."""
-    if sys.platform == 'win32':
-        local_base = Path(os.getenv('APPDATA')) / 'getpack'
-    elif sys.platform == 'linux':
-        local_base = Path(os.environ['HOME']) / '.config' / 'getpack'
+    local_base = os.getenv('GETPACK_ROOT')  # type: Path
+    if local_base:
+        local_base = Path(local_base)
+    else:
+        if sys.platform == 'win32':
+            local_base = Path(os.getenv('APPDATA')) / 'getpack'
+        elif sys.platform == 'linux':
+            local_base = Path(os.getenv('HOME')) / '.config' / 'getpack'
     local_prefix = ''
     _path = None
 

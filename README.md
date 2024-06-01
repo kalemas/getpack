@@ -43,3 +43,4 @@ For linux testing with Docker, run: `docker build -t test . && docker run -it --
 * `GETPACK_RETRIES` - int, number of general retries, used for renaming and
     removing temporary folders
 * `GETPACK_BACKOFF` - float, delay between retires
+* `GETPACK_ROOT` - str, default root folder for all resources
