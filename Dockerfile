@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM mirror.gcr.io/python:3.9
 
 WORKDIR /app
 COPY setup.py setup.cfg pyproject.toml ./

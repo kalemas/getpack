@@ -142,27 +142,27 @@ class Resource(Base):
         """Get list of available versions."""
         raise NotImplementedError()
 
-    def deploy(self):
+    def acquire(self):
         """
         This will produce all the hard work to make resource available, but
-        not necessary to make an effect from resource in current environment.
-        This method also will cleanup currently deployed data before the
-        deployment.
+        necessary to make an effect from resource in current environment.
         """
         raise NotImplementedError
 
     def provide(self):
-        """Make resource available so it would be immediately used."""
+        """
+        Make resource available so it would be immediately used.
+        Current environment may be affected by this resource.
+        """
         if self._available:
             return
-        assert self.name, 'Resource should be named'
-        assert self.version, 'Resource should be versioned'
         with self.lock:
             if self.version in self.get_available_versions():
                 self._available = True
                 return
-            self.deploy()
-            self._available = True
+            self.cleanup()
+            self.acquire()
+        self._available = True
 
     def __call__(self):
         self.provide()
@@ -184,6 +184,8 @@ class LocalResource(Resource):
     @property
     def path(self):  # type: () -> Path
         if self._path is None:
+            assert self.name, 'Resource should be named'
+            assert self.version, 'Resource should be versioned'
             self._path = (self.local_base / self.local_prefix / self.name /
                           self.version)
         return self._path
@@ -204,30 +206,33 @@ class LocalResource(Resource):
         """Obtain resrouce and store in `path`"""
         raise NotImplementedError
 
-    def deploy(self):
-        self.cleanup()
-        # extract to temporary folder then rename
-        temp_path = None
-        try:
-            for _ in range(100):
-                temp_path = self.path.parent / '{:020x}.temp'.format(
-                    random.randrange(16**20))
-                if not temp_path.is_dir():
-                    temp_path.mkdir(parents=True)
-                    break
-            else:
-                raise Exception(
-                    'Failed to find empty temp dir (last: {})'.format(
-                        temp_path))
-            self._deploy_to(temp_path)
-            if not self.path.parent.is_dir():
-                self.path.parent.mkdir(parents=True)
-            retry(temp_path.rename, exceptions=(PermissionError, ))(self.path)
-        except Exception:
-            if temp_path and temp_path.is_dir():
-                retry(shutil.rmtree,
-                      exceptions=(PermissionError, ))(str(temp_path))
-            raise
+    def acquire(self):
+        if self.path.exists():
+            return
+        with self.lock:
+            # extract to temporary folder then rename
+            temp_path = None
+            try:
+                for _ in range(100):
+                    temp_path = self.path.parent / '{:020x}.temp'.format(
+                        random.randrange(16**20))
+                    if not temp_path.is_dir():
+                        temp_path.mkdir(parents=True)
+                        break
+                else:
+                    raise Exception(
+                        'Failed to find empty temp dir (last: {})'.format(
+                            temp_path))
+                self._deploy_to(temp_path)
+                if not self.path.parent.is_dir():
+                    self.path.parent.mkdir(parents=True)
+                retry(temp_path.rename,
+                      exceptions=(PermissionError, ))(self.path)
+            except Exception:
+                if temp_path and temp_path.is_dir():
+                    retry(shutil.rmtree,
+                          exceptions=(PermissionError, ))(str(temp_path))
+                raise
 
     def cleanup(self):
         with self.lock:

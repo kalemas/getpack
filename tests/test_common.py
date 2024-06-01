@@ -1,16 +1,20 @@
 import sys
+import time
 
 from getpack import library, resource
 import pytest
 
 
+cefpython3_archive_url = (
+            'https://files.pythonhosted.org/packages/3b/d4/f313221a999e4d295'
+            'cc8fcb15fc4ac9c98f6759e50735d6f6ce84fd3e98a/'
+            'cefpython3-66.1-py2.py3-none-win_amd64.whl')
+
+
 def test_cefpython3(temp_folder, background_scanner):
     cefpython3 = resource.WebPackage(
         name='cefpython3',
-        archive_url=(
-            'https://files.pythonhosted.org/packages/3b/d4/f313221a999e4d295'
-            'cc8fcb15fc4ac9c98f6759e50735d6f6ce84fd3e98a/'
-            'cefpython3-66.1-py2.py3-none-win_amd64.whl'),
+        archive_url=cefpython3_archive_url,
         version='66.1',
         local_base=temp_folder,
     )
@@ -57,3 +61,21 @@ def test_numpy():
         'numpy', '1.11.2' if sys.version_info < (3, ) else '1.23.1')
     package.cleanup()
     package()
+
+
+def test_custom_download(temp_folder):
+    t1 = time.time()
+    package = resource.WebResource(path=temp_folder / 'test',
+                                   archive_url=cefpython3_archive_url)
+    assert time.time() - t1 < 0.01
+    package.acquire()
+    assert time.time() - t1 > 1
+
+    assert list((temp_folder / 'test').glob('cefpython3/*.pyd'))
+    assert (temp_folder / 'test') == package.path
+
+    t2 = time.time()
+    package = resource.WebResource(path=temp_folder / 'test',
+                                   archive_url=cefpython3_archive_url)
+    package.acquire()
+    assert time.time() - t2 < 0.01

@@ -7,6 +7,7 @@ def test_ffmpeg():
 
 
 def test_executable_override():
+    # TODO linux support
     python = getpack.library.Python()
     assert b'python.exe' in python('-c', 'import sys; print(sys.executable)')
     python = getpack.library.Python(executable_name='pythonw')
