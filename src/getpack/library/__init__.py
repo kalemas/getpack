@@ -53,6 +53,38 @@ class PySide2(PyPiPackage):
         return versions
 
 
+class PySide6(PyPiPackage):
+    name = 'PySide6'
+    version = '6.11.0'
+    _dependencies = [
+        'shiboken6',
+        'pyside6_addons',
+        'pyside6_essentials',
+    ]
+
+    def _deploy_to(self, path):
+        # those should be installed into the same dir as PySide itself
+        for i in self._dependencies:
+            self._PyPiPackage(i, self.version)._deploy_to(path)
+        return super(PySide6, self)._deploy_to(path)
+
+    def cleanup(self):
+        for i in self._dependencies:
+            self._PyPiPackage(i, self.version).cleanup()
+        return super(PySide6, self).cleanup()
+
+    class _PyPiPackage(PyPiPackage):
+
+        def is_release_compatible(self, release):
+            if 'requires_python' not in release:
+                return True
+            if 'cp310' == release['python_version']:
+                return True
+            return False
+
+    is_release_compatible = _PyPiPackage.is_release_compatible
+
+
 class Blender(Executable, WebResource):
     name = 'blender'
     architecture = 'x64'

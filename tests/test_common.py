@@ -22,12 +22,22 @@ def test_cefpython3(temp_folder, background_scanner):
     assert '66.1' in cefpython3.get_available_versions()
 
 
-@pytest.mark.skipif(
-        sys.version_info < (3,), reason='PySide2 available for Py3 only')
+@pytest.mark.skipif(sys.version_info < (3, ),
+                    reason='PySide2 available for Py3 only')
+@pytest.mark.skipif(sys.version_info >= (3, 10),
+                    reason='PySide2 not available for Py3.10+')
 def test_pyside2():
     PySide2 = library.PySide2()
     PySide2.cleanup()
     assert PySide2().__version__ == PySide2.version
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10),
+                    reason='PySide6 available for Py3.10+')
+def test_pyside6():
+    PySide6 = library.PySide6()
+    PySide6.cleanup()
+    assert PySide6().__version__ == PySide6.version
 
 
 def test_cefpython3_pypi(temp_folder, background_scanner):
@@ -58,7 +68,8 @@ def test_parent_folders_exists(temp_folder, background_scanner):
 
 def test_numpy():
     package = resource.PyPiPackage(
-        'numpy', '1.11.2' if sys.version_info < (3, ) else '1.23.1')
+        'numpy', '1.11.2' if sys.version_info < (3, ) else
+        ('1.23.1' if sys.version_info < (3, 11) else '2.4.6'))
     package.cleanup()
     package()
 

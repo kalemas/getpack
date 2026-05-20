@@ -372,6 +372,27 @@ WebPackage = WebPythonPackage  # TODO deprecated
 class PyPiPackage(WebPythonPackage):
     _archive_url = ''
     _release_info = None
+    if sys.platform == 'win32':
+        python_platform = 'win_amd64'
+    elif sys.platform == 'linux':
+        python_platform = 'manylinux'
+    elif sys.platform == 'darwin':
+        python_platform = 'macosx'
+    python_version = (f'{sys.version_info.major}.{sys.version_info.minor}'
+                      f'.{sys.version_info.micro}')
+
+    def is_release_compatible(self, release):
+        if 'requires_python' not in release:
+            return True
+        supported_python_tags = {self.python_tag, 'source'}
+        if self.python_tag.startswith('cp3'):
+            supported_python_tags.add('py3')
+        if self.python_tag.startswith('cp2'):
+            supported_python_tags.add('py2')
+        # python_version looks as `cp39.cp310.cp311` or `py2.py3
+        if supported_python_tags & set(release['python_version'].split('.')):
+            return True
+        return False
 
     @property
     def release_info(self):
@@ -380,35 +401,30 @@ class PyPiPackage(WebPythonPackage):
                 'https://pypi.org/pypi/{}/json'.format(self.name))
             data = json.loads(request.read())
             releases = data['releases'][self.version]
-            debug('Available releases:\n\t%s', '\n\t'.join(
-                r['filename'] for r in data['releases'][self.version]))
-            platform = 'win_amd64'
+            debug(
+                'Available releases:\n\t%s',
+                '\n\t'.join(r['filename']
+                            for r in data['releases'][self.version]))
             if (len(releases) == 1
                     and releases[0]['python_version'] == 'source'):
                 pass
             else:
                 releases = [
                     r for r in releases
-                    if platform in r['filename']
+                    if self.python_platform in r['filename']
                     or re.search(r'\Wany\W', r['filename'])
                 ]
             if self.python_tag:
-                # python_version looks as `cp39.cp310.cp311` or `py2.py3`
-                supported_versions = {self.python_tag, 'source'}
-                if self.python_tag.startswith('cp3'):
-                    supported_versions.add('py3')
-                if self.python_tag.startswith('cp2'):
-                    supported_versions.add('py2')
                 releases = [
-                    r for r in releases if 'python_version' not in r
-                    or supported_versions & set(r['python_version'].split('.'))
+                    r for r in releases if self.is_release_compatible(r)
                 ]
-            # TODO improve release selection
             assert len(
-                releases) >= 1, 'No unique release available from {}'.format(
-                    ', '.join(r['filename'] +
-                              (' (selected)' if r in releases else '')
-                              for r in data['releases'][self.version]))
+                releases
+            ) >= 1, 'No unique release available from {} for {}'.format(
+                ', '.join(r['filename'] +
+                          (' (selected)' if r in releases else '')
+                          for r in data['releases'][self.version]),
+                self.python_version)
             self._release_info = releases[0]
         return self._release_info
 
