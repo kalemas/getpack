@@ -13,6 +13,7 @@ For a copy, see <https://opensource.org/licenses/MIT>.
 
 import json
 import os
+import platform
 import random
 import re
 import shutil
@@ -380,6 +381,11 @@ class PyPiPackage(WebPythonPackage):
         python_platform = 'macosx'
     python_version = (f'{sys.version_info.major}.{sys.version_info.minor}'
                       f'.{sys.version_info.micro}')
+    _architectures = {
+        'arm64': 'aarch64',
+        'x86_64': 'x86_64',
+    }
+    architecture = _architectures.get(platform.machine())
 
     def is_release_compatible(self, release):
         if 'requires_python' not in release:
@@ -414,6 +420,14 @@ class PyPiPackage(WebPythonPackage):
                     if self.python_platform in r['filename']
                     or re.search(r'\Wany\W', r['filename'])
                 ]
+
+            # filter by architecture
+            for release in releases[:]:
+                f = release['filename']
+                if [i for i in self._architectures.values() if i in f
+                    ] and self.architecture not in f:
+                    releases.remove(release)
+
             if self.python_tag:
                 releases = [
                     r for r in releases if self.is_release_compatible(r)

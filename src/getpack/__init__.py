@@ -11,7 +11,7 @@ This work is licensed under the terms of the MIT license.
 For a copy, see <https://opensource.org/licenses/MIT>.
 """
 
-__version__ = '0.5.2'
+__version__ = '0.5.3'
 
 from .executable import Executable, LocalExecutable  # noqa: F401
 from .resource import (  # noqa: F401
